@@ -12,7 +12,10 @@ public class HistoryPointBaker : Baker<HistoryPointAuthoring>
 {
     public override void Bake(HistoryPointAuthoring authoring)
     {
-        AddComponent<ParticleHistory>();
         AddComponent<Movement>();
+        AddComponent<ParticleHistoryPast>();
+        AddComponent<ParticleHistoryFuture>();
+        AddComponent<ParticleHistoryGraphic>();
+        //AddBuffer<ParticleHistoryFuture>();
     }
 }

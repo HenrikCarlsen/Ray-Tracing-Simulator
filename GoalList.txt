@@ -1,0 +1,23 @@
+// 1
+// lav path mellem alle history points
+// lav to sided shader for mirrors and sources
+// Flip aktiv side for mirrors og sources
+
+// 2
+// Find ud af hvordan et test system skal se ud
+// Lav test klasser
+
+
+//
+
+
+// known bugs:
+//      No limits on plane surfaces
+//      Make two sided shader for plane surfaces
+
+
+-------------------------------------------
+// Extra:
+// lav en tids parameter på particles
+// Parabel path
+

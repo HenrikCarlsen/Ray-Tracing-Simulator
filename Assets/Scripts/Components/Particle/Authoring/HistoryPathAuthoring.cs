@@ -12,7 +12,7 @@ public class HistoryPathBaker : Baker<HistoryPathAuthoring>
 {
     public override void Bake(HistoryPathAuthoring authoring)
     {
-        AddComponent<ParticleHistoryPast>();
-        AddBuffer<ParticleHistoryFuture>();
+        AddComponent<Movement>();
+        AddComponent<ParticleHistoryPath>();
     }
 }

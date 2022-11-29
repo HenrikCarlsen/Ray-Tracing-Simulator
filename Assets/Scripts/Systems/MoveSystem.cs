@@ -16,8 +16,13 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
 
     public static double3 ReflectionInPlane(double3 x, Plane plane)
     {
-        // x_r = x-2*nbar(x*nbar)
-        double3 nbar = math.abs(plane.normal) / math.length(plane.normal);
+        // https://math.stackexchange.com/questions/952092/reflect-a-point-about-a-plane-using-matrix-transformation
+        // x_r = x-2*nbar*dot(x*nbar)
+
+        double3 normal = plane.normal;
+        
+        double3 nbar = normal / math.length(normal);
+        Debug.Log("x: " + x + ",\t n: " + normal + ",\t r: " + ( x - 2 * nbar * math.dot(x, nbar)));
         return x - 2 * nbar * math.dot(x, nbar);
     }
 
@@ -41,8 +46,15 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
             Plane dummy = allMirrors[i];
             double tTemp = GeometryHelper.timeOfCollision(movement, acceleration, dummy);
 
+            var atemp = moveInUniformField(movement, acceleration, tTemp);
+            // if( GeometryHelper.planeCollision(atemp.position, dummy) ){
+                
+            // }
+
+
+
             // Enforce mininum t avoid collision with the surface the particle just exited 
-            if (1e-9 < tTemp && tTemp < tMin)
+            if (1e-9 < tTemp && tTemp < tMin && GeometryHelper.planeCollision(atemp.position, dummy))
             {
                 tMin = tTemp;
                 i_tMin = i;
@@ -50,13 +62,13 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
         }
 
         if (i_tMin == -1) return;
-        Debug.Log("FROM movement: " + movement.ToString());
+        // Debug.Log("FROM movement: " + movement.ToString());
 
         // Move particle to point of collision and reflect it's velocity
         movement = moveInUniformField(movement, acceleration, tMin);
         movement.velocity = ReflectionInPlane(movement.velocity, allMirrors[i_tMin]);
 
-        Debug.Log("TO   movement: " + movement.ToString());
+        // Debug.Log("TO   movement: " + movement.ToString());
 
 
         // TODO make new particle
@@ -106,6 +118,3 @@ partial struct MoveClassicallySystem : ISystem
         state.CompleteDependency();
     }
 }
-
-
-
