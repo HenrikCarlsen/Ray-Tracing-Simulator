@@ -14,17 +14,9 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
     [ReadOnly] public NativeArray<Plane> allMirrors;
     public double3 acceleration;
 
-    public static double3 ReflectionInPlane(double3 x, Plane plane)
-    {
-        // https://math.stackexchange.com/questions/952092/reflect-a-point-about-a-plane-using-matrix-transformation
-        // x_r = x-2*nbar*dot(x*nbar)
+    public EntityCommandBuffer.ParallelWriter CommandBuffer;
 
-        double3 normal = plane.normal;
-        
-        double3 nbar = normal / math.length(normal);
-        Debug.Log("x: " + x + ",\t n: " + normal + ",\t r: " + ( x - 2 * nbar * math.dot(x, nbar)));
-        return x - 2 * nbar * math.dot(x, nbar);
-    }
+    [ReadOnly] public Entity particleGeneratorPrefab;
 
     public static Movement moveInUniformField(Movement movement, double3 acceleration, double time)
     {
@@ -33,28 +25,21 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
         return movement;
     }
 
-    public void Execute([ChunkIndexInQuery] int chunkIndex, Entity entity, ref Movement movement)
+    public void Execute([ChunkIndexInQuery] int chunkIndex, Entity entity, ref Movement movement, in ParticleHistory particleHistory)
     {
-        //Debug.Log("allMirrors.Length: " + allMirrors.Length);
+
 
         double tMin = double.MaxValue;
         int i_tMin = -1;
         for (int i = 0; i < allMirrors.Length; i++)
         {
-            // Debug.Log("i: " + i);
-
             Plane dummy = allMirrors[i];
             double tTemp = GeometryHelper.timeOfCollision(movement, acceleration, dummy);
 
-            var atemp = moveInUniformField(movement, acceleration, tTemp);
-            // if( GeometryHelper.planeCollision(atemp.position, dummy) ){
-                
-            // }
-
-
+            var movedParticleTemp = moveInUniformField(movement, acceleration, tTemp);
 
             // Enforce mininum t avoid collision with the surface the particle just exited 
-            if (1e-9 < tTemp && tTemp < tMin && GeometryHelper.planeCollision(atemp.position, dummy))
+            if (1e-9 < tTemp && tTemp < tMin && GeometryHelper.planeCollision(movedParticleTemp.position, dummy))
             {
                 tMin = tTemp;
                 i_tMin = i;
@@ -62,16 +47,38 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
         }
 
         if (i_tMin == -1) return;
-        // Debug.Log("FROM movement: " + movement.ToString());
 
-        // Move particle to point of collision and reflect it's velocity
+        // Move particle to collided part
         movement = moveInUniformField(movement, acceleration, tMin);
-        movement.velocity = ReflectionInPlane(movement.velocity, allMirrors[i_tMin]);
 
-        // Debug.Log("TO   movement: " + movement.ToString());
+        // Make new particle generator
+        var particleGenerator = CommandBuffer.Instantiate(chunkIndex,particleGeneratorPrefab);
+        CommandBuffer.SetComponent<Movement>(chunkIndex,particleGenerator,movement);
+        CommandBuffer.SetComponent<Plane>(chunkIndex,particleGenerator,allMirrors[i_tMin]);
+
+        //Debug.Log("particleHistory 2: " + particleHistory.lastHistoryPoint);
+        CommandBuffer.SetComponent<ParticleHistory>(chunkIndex,particleGenerator,particleHistory);
+
+        // Destroy current particle
+        CommandBuffer.DestroyEntity(chunkIndex,entity);
 
 
-        // TODO make new particle
+        ///////////////////// ALTERNATIVE MODEL (DYNAMIC)
+
+        // Make entity from archetype on plane
+        // Fill out the information on this archtype
+            // Plane and particle 
+            // TODO handle case where it is a not plane
+
+
+        // Get archetype from prefab and particle prefab
+        // Create entity from archetype
+        // Make mirror and detector archetype in the component authoring
+
+
+
+
+        /////////////////////
     }
 }
 
@@ -90,7 +97,7 @@ partial struct MoveClassicallySystem : ISystem
         allMirrorsQuery = new EntityQueryBuilder(Allocator.Persistent).WithAll<MirrorTag, Plane>().Build(ref state);
         GetPlane = state.GetComponentLookup<MirrorTag>(true);
 
-        allParticleTag = new EntityQueryBuilder(Allocator.Persistent).WithAll<ParticleTag>().Build(ref state);
+        allParticleTag = new EntityQueryBuilder(Allocator.Persistent).WithAll<ParticleTag>().WithAllRW<Movement>().Build(ref state);
 
 
         state.RequireForUpdate<Gravity>();
@@ -102,19 +109,23 @@ partial struct MoveClassicallySystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
 
         var gravity = SystemAPI.GetSingleton<Gravity>();
+        var generatorHolder = SystemAPI.GetSingleton<ParticleGeneratorHolder>();
 
         var job = new PlaneMirrorParticleInteractionJob
         {
             allMirrorsEntity = allMirrorsQuery.ToEntityArray(Allocator.TempJob),
             allMirrors = allMirrorsQuery.ToComponentDataArray<Plane>(Allocator.TempJob),
-            acceleration = gravity.acceleration
+            acceleration = gravity.acceleration,
+            CommandBuffer = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter(),
+            particleGeneratorPrefab = generatorHolder.generatorPrefab
         };
 
         job.ScheduleParallel(allParticleTag);
 
-
         state.CompleteDependency();
+
     }
 }

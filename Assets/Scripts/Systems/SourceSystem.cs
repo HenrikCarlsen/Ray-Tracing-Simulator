@@ -27,16 +27,23 @@ public partial struct CreateParticleJob : IJobEntity
     }
 }
 
+[UpdateBefore(typeof(MoveClassicallySystem))]
 [BurstCompile]
 partial struct SourceSystem : ISystem
 {
 
     EntityQuery queryParticle;
 
+    bool runOnce;
+    bool shouldBeRunning;
+
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         queryParticle = new EntityQueryBuilder(Allocator.Temp).WithAll<ParticleTag>().Build(ref state);
+
+        runOnce = true;
+        shouldBeRunning = true;
     }
 
     [BurstCompile]
@@ -46,6 +53,14 @@ partial struct SourceSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        // Simple Check for testing
+        if(!shouldBeRunning) return;
+        if(runOnce) shouldBeRunning = false;
+
+
+
+
+
         var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
         var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
