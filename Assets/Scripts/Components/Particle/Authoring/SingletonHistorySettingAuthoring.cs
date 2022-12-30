@@ -6,12 +6,15 @@ public class SingletonHistorySettingAuthoring : UnityEngine.MonoBehaviour
 {
     public GameObject path;
     public GameObject point;
+
+    public bool historyTrackingOn;
 }
 
 public struct SingletonHistorySetting : IComponentData
 {
     public Entity path;
     public Entity point;
+    public bool historyTrackingOn;
 }
 
 public class SingletonHistorySettingBaker : Baker<SingletonHistorySettingAuthoring>
@@ -22,7 +25,8 @@ public class SingletonHistorySettingBaker : Baker<SingletonHistorySettingAuthori
             new SingletonHistorySetting
             {
                 path = GetEntity(authoring.path),
-                point = GetEntity(authoring.point)
+                point = GetEntity(authoring.point),
+                historyTrackingOn = authoring.historyTrackingOn
             }
         );
     }

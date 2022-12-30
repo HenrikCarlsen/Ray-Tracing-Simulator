@@ -26,13 +26,14 @@ partial struct HistorySystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
+        state.RequireForUpdate<SingletonHistorySetting>();
+
         EntityManager entityManager = state.EntityManager;
 
         var types2 = new NativeArray<ComponentType>(3, Allocator.Temp);
         types2[0] = ComponentType.ReadOnly<Movement>();
         types2[1] = ComponentType.ReadOnly<ParticleTag>();
         types2[2] = ComponentType.ReadWrite<ParticleHistory>();
-
 
         queryMovedParticles = state.GetEntityQuery(types2);
         queryMovedParticles.SetChangedVersionFilter(ComponentType.ReadOnly<Movement>());
@@ -42,10 +43,6 @@ partial struct HistorySystem : ISystem
         types3[1] = ComponentType.ReadWrite<ParticleHistoryPath>();
         queryChangedHistoryPoints = state.GetEntityQuery(types3);
         queryChangedHistoryPoints.SetChangedVersionFilter(ComponentType.ReadWrite<ParticleHistoryPath>());
-
-
-        //gueryHistoryPointMovement = new EntityQueryBuilder(Allocator.Temp).WithAll<Movement>().Build(ref state);
-        //GetMovement = state.GetComponentLookup<Movement>(true);
     }
 
     [BurstCompile]
@@ -56,6 +53,8 @@ partial struct HistorySystem : ISystem
 
         var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
         var HistorySettings = SystemAPI.GetSingleton<SingletonHistorySetting>();
+
+        if(!HistorySettings.historyTrackingOn) return;
 
         var entityManager = state.EntityManager;
         foreach (var movedParticle in queryMovedParticles.ToEntityArray(Allocator.Temp))
@@ -97,8 +96,3 @@ partial struct HistorySystem : ISystem
         state.CompleteDependency();
     }
 }
-
-        // TODO make system groups (history, movement, generation, graphics)
-        // TODO lav multiple historyPath ud fra et point (mirror og history system update)
-        // TODO
-

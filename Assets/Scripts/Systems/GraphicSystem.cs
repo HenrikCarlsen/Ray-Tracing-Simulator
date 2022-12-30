@@ -5,8 +5,11 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using Unity.Jobs;
-
 using UnityEngine;
+
+using Unity.Rendering;
+using System;
+
 
 public partial struct AlignTransformWithMovement : IJobEntity
 {
@@ -28,14 +31,63 @@ public partial struct AlignTransformWithMovementForPath : IJobEntity
     }
 }
 
+// public partial struct DetectorGraphics : IJobEntity
+// {
+//     public void Execute(ref MyOwnColor renderer)
+//     {
+
+//         Debug.Log("_ParticleDetected: " + renderer.Value);
+
+//         // int xLength = 256;
+//         // int yLength = 256;
+
+//         // //var a = new Texture();
+//         // var texture = new Texture2D(xLength, yLength, TextureFormat.ARGB32, false);
+//         // for (int x = 0; x < xLength; x++)
+//         // {
+//         //     for (int y = 0; y < yLength; y++)
+//         //     {
+//         //         texture.SetPixel(x, y, Color.cyan);
+//         //     }
+//         // }
+//         // renderer.material.SetTexture("_ParticleDetected", texture);
+
+//         renderer.Value = Color.yellow;
+
+
+//         //renderer.material.SetTexture("_ParticleDetected", texture);
+//     }
+// }
+
+
+
+
 [UpdateAfter(typeof(HistorySystem))]
 
 [BurstCompile]
 partial struct GraphicSystem : ISystem
 {
+    EntityQuery allGraphicEntities;
+    EntityQuery allGraphicWithPathEntities;
+
+    EntityQuery allDetectors;
+
 
     [BurstCompile]
-    public void OnCreate(ref SystemState state) { }
+    public void OnCreate(ref SystemState state)
+    {
+        allGraphicEntities = new EntityQueryBuilder(Allocator.Persistent).WithAll<LocalToWorldTransform, Movement>().Build(ref state);
+        allGraphicEntities.SetChangedVersionFilter(typeof(Movement));
+
+        allGraphicWithPathEntities = new EntityQueryBuilder(Allocator.Persistent).WithAll<LocalToWorldTransform, Movement, ParticleHistoryPath>().Build(ref state);
+        allGraphicWithPathEntities.SetChangedVersionFilter(typeof(Movement));
+
+
+        allDetectors = new EntityQueryBuilder(Allocator.Persistent).WithAll<DetectorTag, GeneratorBaseTag, RenderMeshArray>().Build(ref state);
+
+
+
+    }
 
     [BurstCompile]
     public void OnDestroy(ref SystemState state) { }
@@ -44,11 +96,78 @@ partial struct GraphicSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var jobAlign = new AlignTransformWithMovement();
-        jobAlign.ScheduleParallel(state.Dependency);
+        jobAlign.ScheduleParallel(allGraphicEntities, state.Dependency);
 
         var jobAlignPath = new AlignTransformWithMovementForPath();
-        jobAlignPath.ScheduleParallel(state.Dependency);
+        jobAlignPath.ScheduleParallel(allGraphicWithPathEntities, state.Dependency);
 
+        // var jobDetectorGraphics = new DetectorGraphics();
+        // jobDetectorGraphics.Run();
+
+        var entities = allDetectors.ToEntityArray(Allocator.Temp);
+
+        for (int i = 0; i < entities.Length; i++)
+        {
+            // MaterialMeshInfo
+            var RMA = state.EntityManager.GetSharedComponentManaged<RenderMeshArray>(entities[i]);
+            var grid = state.EntityManager.GetComponentData<DetectorGrid>(entities[i]);
+
+            // Find the detector's material
+            Material detectorMaterial = null;
+
+            int testIndex = 0;
+            for (int j = 0; j < RMA.Materials.Length; j++)
+            {
+                if (grid.MaterialID == RMA.Materials[j].GetInstanceID())
+                {
+                    detectorMaterial = RMA.Materials[j];
+                    testIndex = j;
+                    break;
+                }
+            }
+            if (detectorMaterial == null) continue;
+
+            int xLength = grid.pixelCount.x;
+            int yLength = grid.pixelCount.y;
+
+            var texture = new Texture2D(xLength, yLength, TextureFormat.ARGB32, false);
+            texture.filterMode = FilterMode.Point;
+
+            double textureRangeMax = 1;
+            double rangeMax = grid.range.y;
+
+            detectorMaterial.SetVector("_GraphicScale", new Vector4(grid.pixelCount.x, grid.pixelCount.y, 0, 0));
+
+            for (int x = 0; x < xLength; x++)
+            {
+                for (int y = 0; y < yLength; y++)
+                {
+                    double value = grid.get(new int2(x, y));
+
+                    if (rangeMax == 0 || value == 0)
+                    {
+                        texture.SetPixel(x, y, new Color(0, 0, 0, 0));
+                        continue;
+                    }
+
+                    // Rescale to texture range: 
+                    if (grid.scale == DetectorGrid.Scale.linear)
+                    {
+                        value = value * (textureRangeMax / rangeMax);
+                        texture.SetPixel(x, y, new Color((float)value, (float)value, (float)value, 1));
+                    }
+                    if (grid.scale == DetectorGrid.Scale.log)
+                    {
+                        value = math.log(1 + value);
+                        value = value * (textureRangeMax / math.log(1 + rangeMax));
+                        texture.SetPixel(x, y, new Color((float)value, (float)value, (float)value, 1));
+                    }
+                }
+            }
+            // Send the texture and material to the graphics card.
+            texture.Apply();
+            detectorMaterial.SetTexture("_ParticleDetectedImage", texture);
+        }
         state.CompleteDependency();
     }
 }

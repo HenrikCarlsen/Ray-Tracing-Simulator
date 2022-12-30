@@ -11,6 +11,8 @@ public class SourceAuthoring : UnityEngine.MonoBehaviour
     public float3 startVelocity;
 
     public GameObject particle;
+
+    public int randomSeed;
 }
 
 // Bakers convert authoring MonoBehaviours into entities and components.
@@ -22,7 +24,8 @@ public class SourceBaker : Baker<SourceAuthoring>
             {
                 particle = GetEntity(authoring.particle),
                 startVelocity = authoring.startVelocity,
-                startPosition = (float3)authoring.transform.position
+                startPosition = (float3)authoring.transform.position,
+                randomSeed = (uint)authoring.randomSeed
             }
         );
         AddComponent<Plane>(new Plane(authoring.gameObject));

@@ -11,12 +11,12 @@ using UnityEngine;
 public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
 {
     [ReadOnly] public NativeArray<Entity> allMirrorsEntity;
-    [ReadOnly] public NativeArray<Plane> allMirrors;
+    [ReadOnly] public NativeArray<Plane> allMirrorsPlane;
+    [ReadOnly] public NativeArray<GeneratorHolder> allGenerators;
+
     public double3 acceleration;
 
     public EntityCommandBuffer.ParallelWriter CommandBuffer;
-
-    [ReadOnly] public Entity particleGeneratorPrefab;
 
     public static Movement moveInUniformField(Movement movement, double3 acceleration, double time)
     {
@@ -25,15 +25,18 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
         return movement;
     }
 
-    public void Execute([ChunkIndexInQuery] int chunkIndex, Entity entity, ref Movement movement, in ParticleHistory particleHistory)
+    public void Execute(
+        [ChunkIndexInQuery] int chunkIndex, Entity entity,
+        ref Movement movement, in ParticleHistory particleHistory, in ParticleProperties particleProperties
+        )
     {
 
-
+        // Find all intersections with all planes
         double tMin = double.MaxValue;
         int i_tMin = -1;
-        for (int i = 0; i < allMirrors.Length; i++)
+        for (int i = 0; i < allGenerators.Length; i++)
         {
-            Plane dummy = allMirrors[i];
+            Plane dummy = allMirrorsPlane[i];
             double tTemp = GeometryHelper.timeOfCollision(movement, acceleration, dummy);
 
             var movedParticleTemp = moveInUniformField(movement, acceleration, tTemp);
@@ -45,59 +48,52 @@ public partial struct PlaneMirrorParticleInteractionJob : IJobEntity
                 i_tMin = i;
             }
         }
-
-        if (i_tMin == -1) return;
+        if (i_tMin == -1)
+        {
+            CommandBuffer.DestroyEntity(chunkIndex, entity);
+            return;
+        }
 
         // Move particle to collided part
         movement = moveInUniformField(movement, acceleration, tMin);
 
-        // Make new particle generator
-        var particleGenerator = CommandBuffer.Instantiate(chunkIndex,particleGeneratorPrefab);
-        CommandBuffer.SetComponent<Movement>(chunkIndex,particleGenerator,movement);
-        CommandBuffer.SetComponent<Plane>(chunkIndex,particleGenerator,allMirrors[i_tMin]);
+        // Make a generator based on the intersected thing
 
-        //Debug.Log("particleHistory 2: " + particleHistory.lastHistoryPoint);
-        CommandBuffer.SetComponent<ParticleHistory>(chunkIndex,particleGenerator,particleHistory);
+
+        // Make new particle generator
+        var particleGenerator = CommandBuffer.Instantiate(chunkIndex, allGenerators[i_tMin].generator);
+        CommandBuffer.SetComponent<GeneratorOwner>(chunkIndex, particleGenerator, new GeneratorOwner { owner = allMirrorsEntity[i_tMin] });
+
+        // Particle fill:
+        CommandBuffer.SetComponent<Movement>(chunkIndex, particleGenerator, movement);
+        CommandBuffer.SetSharedComponent<ParticleProperties>(chunkIndex, particleGenerator, particleProperties);
+
+        // Set Plane
+        CommandBuffer.SetComponent<Plane>(chunkIndex, particleGenerator, allMirrorsPlane[i_tMin]);
+
+        // Set History
+        CommandBuffer.SetComponent<ParticleHistory>(chunkIndex, particleGenerator, particleHistory);
 
         // Destroy current particle
-        CommandBuffer.DestroyEntity(chunkIndex,entity);
-
-
-        ///////////////////// ALTERNATIVE MODEL (DYNAMIC)
-
-        // Make entity from archetype on plane
-        // Fill out the information on this archtype
-            // Plane and particle 
-            // TODO handle case where it is a not plane
-
-
-        // Get archetype from prefab and particle prefab
-        // Create entity from archetype
-        // Make mirror and detector archetype in the component authoring
-
-
-
-
-        /////////////////////
+        CommandBuffer.DestroyEntity(chunkIndex, entity);
     }
 }
 
 [BurstCompile]
 partial struct MoveClassicallySystem : ISystem
 {
-    EntityQuery allMirrorsQuery;
+    EntityQuery allObjectsQuery;
 
-    EntityQuery allParticleTag;
-    
-    ComponentLookup<MirrorTag> GetPlane;
+    EntityQuery allObjectsTag;
+
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        allMirrorsQuery = new EntityQueryBuilder(Allocator.Persistent).WithAll<MirrorTag, Plane>().Build(ref state);
-        GetPlane = state.GetComponentLookup<MirrorTag>(true);
-
-        allParticleTag = new EntityQueryBuilder(Allocator.Persistent).WithAll<ParticleTag>().WithAllRW<Movement>().Build(ref state);
+        // allMirrorsQuery = new EntityQueryBuilder(Allocator.Persistent).WithAll<MirrorTag, Plane, GeneratorHolder>().Build(ref state);
+        // allParticleTag = new EntityQueryBuilder(Allocator.Persistent).WithAll<ParticleTag>().WithAllRW<Movement>().Build(ref state);
+        allObjectsQuery = new EntityQueryBuilder(Allocator.Persistent).WithAll<Plane, GeneratorHolder>().Build(ref state);
+        allObjectsTag = new EntityQueryBuilder(Allocator.Persistent).WithAll<ParticleTag>().WithAllRW<Movement>().Build(ref state);
 
 
         state.RequireForUpdate<Gravity>();
@@ -116,14 +112,13 @@ partial struct MoveClassicallySystem : ISystem
 
         var job = new PlaneMirrorParticleInteractionJob
         {
-            allMirrorsEntity = allMirrorsQuery.ToEntityArray(Allocator.TempJob),
-            allMirrors = allMirrorsQuery.ToComponentDataArray<Plane>(Allocator.TempJob),
+            allMirrorsEntity = allObjectsQuery.ToEntityArray(Allocator.TempJob),
+            allMirrorsPlane = allObjectsQuery.ToComponentDataArray<Plane>(Allocator.TempJob),
+            allGenerators = allObjectsQuery.ToComponentDataArray<GeneratorHolder>(Allocator.TempJob),
             acceleration = gravity.acceleration,
             CommandBuffer = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter(),
-            particleGeneratorPrefab = generatorHolder.generatorPrefab
         };
-
-        job.ScheduleParallel(allParticleTag);
+        job.ScheduleParallel(allObjectsTag);
 
         state.CompleteDependency();
 

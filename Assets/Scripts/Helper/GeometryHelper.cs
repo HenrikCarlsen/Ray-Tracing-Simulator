@@ -52,4 +52,5 @@ class GeometryHelper
         double N = Unity.Mathematics.math.length(V);
         return D / N;
     }
+
 }
