@@ -22,5 +22,9 @@ public class simpleParticleBaker : Baker<simpleParticleAuthoring>
         });
 
         AddComponent<ParticleHistory>();
+
+
+        // Remove transform
+
     }
 }

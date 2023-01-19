@@ -25,8 +25,6 @@ public class SimpleDetectorTypeBaker : Baker<SimpleDetectorTypeAuthoring>
 
         // Generator properties
         AddComponent<Plane>(new Plane(authoring.gameObject));
-        //AddComponent<DetectorOwner>(new DetectorOwner{owner = Entity.Null } );
-
         AddComponent<GeneratorOwner>(new GeneratorOwner{owner = Entity.Null});
 
         // Particle properties

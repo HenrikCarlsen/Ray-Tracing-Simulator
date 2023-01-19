@@ -14,6 +14,8 @@ public partial struct ReflectJob : IJobEntity
 
     public int generateCount;
 
+    public uint seed;
+
     public Entity ParticlePrefab;
 
     public static double3 ReflectionInPlane(double3 x, Plane plane)
@@ -34,14 +36,58 @@ public partial struct ReflectJob : IJobEntity
         var velocity = ReflectionInPlane(movement.velocity, plane);
         Movement newMovement = new Movement { position = movement.position, velocity = velocity };
 
+
+        var random = new Unity.Mathematics.Random(seed + (uint)chunkIndex + 1);
+
         // create new particle
         var particle = CommandBuffer.Instantiate(chunkIndex, ParticlePrefab);
 
-        CommandBuffer.SetComponent<Movement>(chunkIndex, particle, newMovement);
+
+        double tempRandomFactor = 0.2;
+
+        CommandBuffer.SetComponent<Movement>(chunkIndex, particle, new Movement
+        {
+            position = newMovement.position,
+            velocity = newMovement.velocity + random.NextDouble(-tempRandomFactor, tempRandomFactor)*new double3(0,1,0)
+        });
         CommandBuffer.SetSharedComponent<ParticleProperties>(chunkIndex, particle, particleProperties);
 
         //Debug.Log("particleHistory 1: " + particleHistory.lastHistoryPoint);
         CommandBuffer.SetComponent<ParticleHistory>(chunkIndex, particle, particleHistory);
+
+        // create new particle 2
+        var particle2 = CommandBuffer.Instantiate(chunkIndex, ParticlePrefab);
+
+        CommandBuffer.SetComponent<Movement>(chunkIndex, particle2, new Movement
+        {
+            position = newMovement.position,
+            velocity = newMovement.velocity + random.NextDouble(-tempRandomFactor, tempRandomFactor)*new double3(0,1,0)
+        });
+        CommandBuffer.SetSharedComponent<ParticleProperties>(chunkIndex, particle2, particleProperties);
+
+        //new Movement { position = newMovement.position, velocity = newMovement.velocity }
+
+        //Debug.Log("particleHistory 1: " + particleHistory.lastHistoryPoint);
+        CommandBuffer.SetComponent<ParticleHistory>(chunkIndex, particle2, particleHistory);
+
+        // create new particle 2
+        var particle3 = CommandBuffer.Instantiate(chunkIndex, ParticlePrefab);
+
+        CommandBuffer.SetComponent<Movement>(chunkIndex, particle3, new Movement
+        {
+            position = newMovement.position,
+            velocity = newMovement.velocity + random.NextDouble(-tempRandomFactor, tempRandomFactor)*new double3(0,1,0)
+        });
+        CommandBuffer.SetSharedComponent<ParticleProperties>(chunkIndex, particle3, particleProperties);
+
+        //new Movement { position = newMovement.position, velocity = newMovement.velocity }
+
+        //Debug.Log("particleHistory 1: " + particleHistory.lastHistoryPoint);
+        CommandBuffer.SetComponent<ParticleHistory>(chunkIndex, particle3, particleHistory);
+
+
+
+
 
         // destroy this generator
         CommandBuffer.DestroyEntity(chunkIndex, entity);
@@ -72,13 +118,16 @@ partial struct MirrorSystem : ISystem
         var ecbSingleton = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>();
         var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
 
+        int timeInFrames = Time.frameCount;
+
         var particlePrefab = SystemAPI.GetSingleton<ParticleGeneratorHolder>().particlePrefab;
 
         // Create particles for each source
         var job = new ReflectJob
         {
             CommandBuffer = ecb.AsParallelWriter(),
-            ParticlePrefab = particlePrefab
+            ParticlePrefab = particlePrefab,
+            seed = (uint)timeInFrames
         };
         state.Dependency = job.ScheduleParallel(allMirrorGenerators, state.Dependency);
     }

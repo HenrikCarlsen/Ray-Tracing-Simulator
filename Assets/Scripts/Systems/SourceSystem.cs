@@ -29,7 +29,7 @@ public partial struct CreateParticleJob : IJobEntity
             var particle = CommandBuffer.Instantiate(chunkIndex, source.particle);
             // Set velocity in Movement
             CommandBuffer.SetComponent<Movement>(chunkIndex, particle,
-                new Movement { position = source.startPosition, velocity = source.startVelocity + source.random.NextDouble3(-0.02, 0.02) }
+                new Movement { position = source.startPosition, velocity = source.startVelocity + source.random.NextDouble(-0.1, 0.1)*new double3(0,1,0) }
             );
         }
     }
@@ -49,7 +49,7 @@ partial struct SourceSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         queryParticle = new EntityQueryBuilder(Allocator.Temp).WithAll<ParticleTag>().Build(ref state);
-        runOnce = false;
+        runOnce = true;
         shouldBeRunning = true;
     }
 
@@ -73,8 +73,7 @@ partial struct SourceSystem : ISystem
         if (currentParticleCount.Length < currentParticleCountTarget)
         {
             int targetGenerateRate = 1;
-
-            if (currentParticleCountTarget - currentParticleCount.Length < targetGenerateRate)
+            if (currentParticleCount.Length - currentParticleCountTarget < targetGenerateRate)
                 targetGenerateRate = currentParticleCountTarget - currentParticleCount.Length;
 
             // Create particles for each source

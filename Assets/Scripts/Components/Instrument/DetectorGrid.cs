@@ -17,17 +17,27 @@ public struct DetectorGrid : IComponentData
 
     public int MaterialID;
 
-    public NativeArray<DetectorPixel> all(){return pixels;}
+    public NativeArray<DetectorPixel> all() { return pixels; }
 
     public int2 pixelCount { get; private set; }
 
-    public enum Scale{linear,log}
+    public enum Scale { linear, log }
     public Scale scale;
 
-    public double2 range  { get; set; }
+    public double2 range { get; set; }
 
 
     public int totalCount; // TODO not impemented yet
+
+    public double totalCountCalculator()
+    {
+        double totalCount = 0;
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            totalCount += pixels[i].count;
+        }
+        return totalCount;
+    }
 
     private int flatten(int2 coord)
     {
@@ -53,7 +63,7 @@ public struct DetectorGrid : IComponentData
     public DetectorGrid(int2 size, Scale scale = Scale.linear)
     {
         this.MaterialID = -1;
-        this.range = new double2(0,0);
+        this.range = new double2(0, 0);
         this.scale = scale;
         this.totalCount = 0;
         this.pixelCount = size;

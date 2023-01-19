@@ -31,18 +31,17 @@ public partial struct DetectorCounter : IJobEntity
 
     public void Execute([ChunkIndexInQuery] int chunkIndex, Entity entity, in Plane plane, ref DetectorGrid grid) // In detector
     {
-
         for (int i = 0; i < allDetectorOwner.Length; i++)
         {
-            if (allDetectorOwner[i].owner != entity) break;
+            if (allDetectorOwner[i].owner != entity) continue;
 
             // Update grid
-            double2 relativePoint = plane.relativeSurfacePosition(allDetectorGeneratorsMovement[i].position);
+            double2 relativePoint = plane.project2Surface(allDetectorGeneratorsMovement[i].position);
 
             int2 detectorPixel = (int2)math.round(relativePoint * grid.pixelCount);
             grid.set(detectorPixel, grid.get(detectorPixel) + 1);
-
         }
+
         // update range
         double max = 0;
         for (int i = 0; i < grid.all().Length; i++)

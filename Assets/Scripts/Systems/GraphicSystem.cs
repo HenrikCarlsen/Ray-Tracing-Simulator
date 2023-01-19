@@ -31,37 +31,6 @@ public partial struct AlignTransformWithMovementForPath : IJobEntity
     }
 }
 
-// public partial struct DetectorGraphics : IJobEntity
-// {
-//     public void Execute(ref MyOwnColor renderer)
-//     {
-
-//         Debug.Log("_ParticleDetected: " + renderer.Value);
-
-//         // int xLength = 256;
-//         // int yLength = 256;
-
-//         // //var a = new Texture();
-//         // var texture = new Texture2D(xLength, yLength, TextureFormat.ARGB32, false);
-//         // for (int x = 0; x < xLength; x++)
-//         // {
-//         //     for (int y = 0; y < yLength; y++)
-//         //     {
-//         //         texture.SetPixel(x, y, Color.cyan);
-//         //     }
-//         // }
-//         // renderer.material.SetTexture("_ParticleDetected", texture);
-
-//         renderer.Value = Color.yellow;
-
-
-//         //renderer.material.SetTexture("_ParticleDetected", texture);
-//     }
-// }
-
-
-
-
 [UpdateAfter(typeof(HistorySystem))]
 
 [BurstCompile]
@@ -72,7 +41,6 @@ partial struct GraphicSystem : ISystem
 
     EntityQuery allDetectors;
 
-
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -82,11 +50,7 @@ partial struct GraphicSystem : ISystem
         allGraphicWithPathEntities = new EntityQueryBuilder(Allocator.Persistent).WithAll<LocalToWorldTransform, Movement, ParticleHistoryPath>().Build(ref state);
         allGraphicWithPathEntities.SetChangedVersionFilter(typeof(Movement));
 
-
         allDetectors = new EntityQueryBuilder(Allocator.Persistent).WithAll<DetectorTag, GeneratorBaseTag, RenderMeshArray>().Build(ref state);
-
-
-
     }
 
     [BurstCompile]
@@ -101,11 +65,7 @@ partial struct GraphicSystem : ISystem
         var jobAlignPath = new AlignTransformWithMovementForPath();
         jobAlignPath.ScheduleParallel(allGraphicWithPathEntities, state.Dependency);
 
-        // var jobDetectorGraphics = new DetectorGraphics();
-        // jobDetectorGraphics.Run();
-
         var entities = allDetectors.ToEntityArray(Allocator.Temp);
-
         for (int i = 0; i < entities.Length; i++)
         {
             // MaterialMeshInfo
@@ -122,7 +82,7 @@ partial struct GraphicSystem : ISystem
                 {
                     detectorMaterial = RMA.Materials[j];
                     testIndex = j;
-                    break;
+                    //break;
                 }
             }
             if (detectorMaterial == null) continue;

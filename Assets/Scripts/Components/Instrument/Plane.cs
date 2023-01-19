@@ -26,15 +26,7 @@ public struct Plane : IComponentData
         scale = new double2(transform.lossyScale.x, transform.lossyScale.y);
     }
 
-    public double3 onSurface(float3 point){
-        // https://stackoverflow.com/questions/23472048/projecting-3d-points-to-2d-plane
-        double s = math.dot(normal, point-position);
-        double t_1 = math.dot(normalX, point-position); 
-        double t_2 = math.dot(normalY, point-position);
-        return position + t_1*normalX + t_2*normalY;
-    }
-
-    public double2 relativeSurfacePosition(double3 point){
+    public double2 project2Surface(double3 point){
         // https://stackoverflow.com/questions/23472048/projecting-3d-points-to-2d-plane
         double t_1 = math.dot(normalX, point-position)/(scale.x/2.0); 
         double t_2 = math.dot(normalY, point-position)/(scale.y/2.0); 
@@ -46,5 +38,6 @@ public struct Plane : IComponentData
         return new double2(s_1,s_2);
     }
 
+    public void randomPointOnSurface(){}
 
 }
