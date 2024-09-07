@@ -1,26 +1,37 @@
+
+
 # Physics Ray Tracing Simulator
-This is a novel scientific ray tracer which aims to leverage the benefits of data-oriented design to deliver state of the art simulation of physics instruments' background.
-Modularity, performance and ease of use is the focus, while keeping the types of physics the ray simulates flexible.
 
-## Novel features
-Compared to other ray tracing simulator program used in physics this simulator has the following novel features:
+If one were to sum up all scientific experiments as trying to maximize the signal to noise ratio for different signals one would not be entirely in the wrong.
+Today we can use simulations to find the setup which gives the best ratios before we start the real, and expensive, experiment.
 
-### Data oriented design
-    Written with Unity's DOTS package which allows for high performance and scalability out of the box.
-    We can seperate physics from the computer science and allow people who are expert in physics, not programming, to write simulations with state of the art performance.
-
-### One to many scattering
-    Each in-going ray can create multiple outgoing rays. Beside allowing for more kinds of physics to be simulated, this also helps performance as interaction often yield multiple outgoing rays naturally.
-<img src="ParticleBouncingWIP.png" width="500">
+A problem I see in many ray tracing simulations performed is a lack of focus on the noise, leaving out half of the ratio. 
+My guess to why this is is simple due to the complexities needed of the simulation and not of the physics.
+So my proposal with this ray tracer is to provide a framework allowing for handling these complexities without 
 
 ### Modular instrument design
-    Each part of the instrument consist of modular components. 
-    This allows for strong maintainable modules that are reused and for building instruments without writing code but instead by using Unity's drag and drop interface
 
-## Future Goals
+When simulating noise the background must be simulated.
+This can increase the number of independent parts of the simulation by orders.
+These parts cannot no longer be bestoke without scaling the development time, 
+so this ray tracer must provide standardlized tools for making modular parts for many more cases than a ray tracer purely focused on the signal.
+
+### Performance
+
+Simulating only the signal gives many options optimizing the simulation simply by removing rays not behaving ideally.
+Noise is by difination noisy and leaves fewer physics based optimization options, hence the underlying simulation must have better performance.
+
+### One to many scattering
+
+By allowing a ray to bisect into multiple rays, or even different rays, simulations that can be difficult to perform become trivial.
+
+# Future Goals
+The current state of the project is very much in the prototype state. Future goals include:
+
     Stronger Test setup
     Comparative performance tests
     Finish job model for interactions
     Rethink authoring to make sure unphysical setups are harder to make
     Handle multiple kind of interaction on the same object
     Better real life models implemented
+
